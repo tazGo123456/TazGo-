@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TazGo | تاز غو</title>
+  <meta name="description" content="تاز غو — بيع • اشري • توصّل">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f6f8;color:#17202a}
+    header{background:#111827;color:#fff;padding:18px 6%;display:flex;align-items:center;justify-content:space-between;gap:15px;position:sticky;top:0;z-index:5}
+    .logo{font-size:25px;font-weight:800}.tag{font-size:13px;opacity:.8}
+    .hero{padding:45px 6%;background:linear-gradient(135deg,#111827,#334155);color:#fff}
+    .hero h1{font-size:38px;margin:0 0 10px}.hero p{font-size:18px;opacity:.9}
+    .wrap{max-width:1100px;margin:auto;padding:24px 16px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+    input,select,textarea,button{font:inherit;border-radius:10px;padding:12px;border:1px solid #d1d5db}
+    input,select,textarea{background:#fff;width:100%}button{cursor:pointer;border:0;background:#111827;color:#fff;font-weight:700}
+    .toolbar input{flex:1;min-width:220px}.toolbar select{width:180px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+    .card{background:#fff;border-radius:16px;padding:15px;box-shadow:0 4px 18px #0000000b}
+    .photo{height:150px;background:#e5e7eb;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#6b7280;margin-bottom:12px}
+    .price{font-size:20px;font-weight:800;margin:8px 0}.muted{color:#6b7280;font-size:14px}
+    .panel{background:#fff;border-radius:16px;padding:20px;margin-top:25px;box-shadow:0 4px 18px #0000000b}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.row>*{min-width:0}
+    .full{grid-column:1/-1}.msg{margin-top:10px;font-weight:700}
+    footer{text-align:center;padding:30px;color:#6b7280}
+    @media(max-width:650px){.hero h1{font-size:30px}.row{grid-template-columns:1fr}.toolbar select{width:100%}}
+  </style>
+</head>
+<body>
+<header><div><div class="logo">TazGo | تاز غو</div><div class="tag">بيع • اشري • توصّل</div></div><button onclick="document.getElementById('add').scrollIntoView()">أضف إعلان</button></header>
+<section class="hero"><h1>سوق تازروك بين يديك</h1><p>بيع، اشري واطلب التوصيل من منصة TazGo.</p></section>
+<main class="wrap">
+  <div class="toolbar">
+    <input id="search" placeholder="ابحث عن منتج...">
+    <select id="category"><option value="">كل التصنيفات</option><option>إلكترونيات</option><option>ملابس</option><option>سيارات</option><option>منزل</option><option>هواتف</option><option>أخرى</option></select>
+  </div>
+  <div id="status" class="muted">جارِ تحميل الإعلانات...</div>
+  <div id="products" class="grid"></div>
+
+  <section id="add" class="panel">
+    <h2>إضافة إعلان</h2>
+    <div class="row">
+      <input id="title" placeholder="اسم المنتج">
+      <input id="price" type="number" placeholder="السعر بالدينار">
+      <select id="cat"><option>إلكترونيات</option><option>ملابس</option><option>سيارات</option><option>منزل</option><option>هواتف</option><option>أخرى</option></select>
+      <input id="seller" placeholder="اسم البائع">
+      <textarea id="description" class="full" rows="4" placeholder="وصف المنتج"></textarea>
+    </div>
+    <button style="margin-top:12px" onclick="addProduct()">نشر الإعلان</button>
+    <div id="msg" class="msg"></div>
+  </section>
+</main>
+<footer>TazGo | تاز غو — بيع • اشري • توصّل</footer>
+
+<script>
+const SUPABASE_URL = "https://toactqobqgytkcecdsix.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "ضع_مفتاح_Supabase_هنا";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+let allProducts=[];
+async function loadProducts(){
+  if(SUPABASE_PUBLISHABLE_KEY.includes("ضع_مفتاح")) {
+    document.getElementById("status").textContent="أضف Publishable/anon Key في أعلى الملف لتفعيل قاعدة البيانات.";
+    return;
+  }
+  const {data,error}=await sb.from("products").select("*").order("created_at",{ascending:false});
+  if(error){document.getElementById("status").textContent="تعذر تحميل الإعلانات: "+error.message;return;}
+  allProducts=data||[]; render();
+}
+function render(){
+  const q=document.getElementById("search").value.toLowerCase();
+  const c=document.getElementById("category").value;
+  const list=allProducts.filter(p=>(!q||(p.title||"").toLowerCase().includes(q)||(p.description||"").toLowerCase().includes(q))&&(!c||p.category===c));
+  document.getElementById("status").textContent=list.length+" إعلان";
+  document.getElementById("products").innerHTML=list.map(p=>`
+    <article class="card">
+      <div class="photo">صورة المنتج</div>
+      <h3>${esc(p.title||"بدون اسم")}</h3>
+      <div class="price">${Number(p.price||0).toLocaleString("ar-DZ")} دج</div>
+      <div class="muted">${esc(p.category||"أخرى")} • ${esc(p.seller_name||"بائع")}</div>
+      <p>${esc(p.description||"")}</p>
+      <button onclick="orderProduct('${p.id}')">أطلب الآن</button>
+    </article>`).join("") || '<div class="muted">لا توجد إعلانات.</div>';
+}
+async function addProduct(){
+  const title=document.getElementById("title").value.trim(), price=Number(document.getElementById("price").value);
+  const category=document.getElementById("cat").value, seller_name=document.getElementById("seller").value.trim(), description=document.getElementById("description").value.trim();
+  const msg=document.getElementById("msg");
+  if(!title||!price){msg.textContent="أدخل اسم المنتج والسعر.";return;}
+  const {error}=await sb.from("products").insert({title,price,category,seller_name,description});
+  msg.textContent=error?"خطأ: "+error.message:"تم نشر الإعلان بنجاح.";
+  if(!error){["title","price","seller","description"].forEach(id=>document.getElementById(id).value="");loadProducts();}
+}
+async function orderProduct(id){
+  const name=prompt("اكتب اسمك");
+  if(!name)return;
+  const phone=prompt("رقم الهاتف");
+  if(!phone)return;
+  const address=prompt("عنوان التوصيل");
+  if(!address)return;
+  const {error}=await sb.from("orders").insert({product_id:id,customer_name:name,customer_phone:phone,delivery_address:address,status:"new"});
+  alert(error?"تعذر إنشاء الطلب: "+error.message:"تم إرسال طلبك بنجاح.");
+}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+document.getElementById("search").oninput=render;document.getElementById("category").onchange=render;loadProducts();
+</script>
+</body>
+</html>
